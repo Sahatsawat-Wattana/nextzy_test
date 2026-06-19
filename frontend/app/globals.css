@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin: 0; color: #172033; background: #f5f6f8; font-family: Arial, "Noto Sans Thai", sans-serif; }
+button { -webkit-tap-highlight-color: transparent; }
+.app-shell { min-height: 100dvh; max-width: 480px; margin: 0 auto; background: white; position: relative; box-shadow: 0 0 35px rgb(15 23 42 / .08); }
+.gradient-page { background: linear-gradient(180deg, #fff 0%, #fff8ee 58%, #ffead0 100%); }
+.safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+@keyframes pop { 0% { transform: scale(.8); opacity: 0 } 100% { transform: scale(1); opacity: 1 } }
+.animate-pop { animation: pop .25s ease-out; }

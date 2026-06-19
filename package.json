@@ -1,0 +1,19 @@
+{
+  "name": "nextzy-rewards",
+  "private": true,
+  "workspaces": ["frontend", "backend"],
+  "scripts": {
+    "dev": "concurrently -n web,api -c cyan,magenta \"npm run dev -w @nextzy/web\" \"npm run dev -w @nextzy/api\"",
+    "build": "npm run build -w @nextzy/api && npm run build -w @nextzy/web",
+    "test": "npm run test -w @nextzy/api && npm run test -w @nextzy/web",
+    "lint": "npm run lint -w @nextzy/api && npm run lint -w @nextzy/web",
+    "db:generate": "npm run db:generate -w @nextzy/api",
+    "db:migrate": "npm run db:migrate -w @nextzy/api",
+    "deploy:build": "docker compose --env-file .env.production -f docker-compose.prod.yml build",
+    "deploy:up": "docker compose --env-file .env.production -f docker-compose.prod.yml up -d"
+  },
+  "devDependencies": { "concurrently": "^9.1.2" },
+  "overrides": {
+    "next": { "postcss": "8.5.15" }
+  }
+}

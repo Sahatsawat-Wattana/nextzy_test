@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id        Int             @id @default(1)
+  score     Int             @default(0)
+  plays     PlayHistory[]
+  rewards   RewardHistory[]
+  updatedAt DateTime        @updatedAt
+}
+
+model PlayHistory {
+  id        Int      @id @default(autoincrement())
+  score     Int
+  createdAt DateTime @default(now())
+  playerId  Int
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+}
+
+model RewardHistory {
+  id         Int      @id @default(autoincrement())
+  checkpoint Int      @unique
+  rewardName String
+  createdAt  DateTime @default(now())
+  playerId   Int
+  player     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+}

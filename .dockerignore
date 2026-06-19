@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/*.tsbuildinfo
+.git
+.gitignore
+.env
+.env.*
+!.env.production.example
+*.log
+image-*.png
+instruction.md
+AGENTS.md
+README.md
