@@ -3,7 +3,7 @@
 export type ModalContent = {
   title: string;
   detail: string;
-  icon?: string;
+  icon?: string | null;
 };
 
 type ModalProps = ModalContent & {
@@ -19,9 +19,11 @@ export function Modal({ title, detail, icon = '♛', onClose }: ModalProps) {
         <button aria-label="ปิด" onClick={onClose} className="reward-modal__close">
           ×
         </button>
-        <div className={`reward-modal__icon ${isReward ? 'is-coin' : ''}`} aria-hidden="true">
-          {icon}
-        </div>
+        {icon && (
+          <div className={`reward-modal__icon ${isReward ? 'is-coin' : ''}`} aria-hidden="true">
+            {icon}
+          </div>
+        )}
         <h2>{title}</h2>
         <p>{detail}</p>
         <button onClick={onClose} className="reward-modal__button">

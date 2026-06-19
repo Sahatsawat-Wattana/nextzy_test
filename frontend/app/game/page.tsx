@@ -70,7 +70,7 @@ export default function GamePage() {
         detail: reachedMax
           ? `ได้รับ ${result.earned.toLocaleString()} คะแนน และสะสมครบ ${MAX_SCORE.toLocaleString()} คะแนนแล้ว`
           : `${result.earned.toLocaleString()} คะแนน`,
-        icon: reachedMax ? '✓' : '🎉',
+        icon: reachedMax ? '✓' : null,
       });
     } catch (error) {
       setDialog({
@@ -91,10 +91,8 @@ export default function GamePage() {
   return (
     <main className="app-shell game-page">
       <header className="game-header">
-        <p>คะแนนสะสม</p>
         <h1>
-          {totalScore.toLocaleString()}
-          <span>/{MAX_SCORE.toLocaleString()}</span>
+          คะแนนสะสม {totalScore.toLocaleString()}/{MAX_SCORE.toLocaleString()}
         </h1>
         {isMaxScore && <strong>คะแนนเต็มแล้ว</strong>}
       </header>
