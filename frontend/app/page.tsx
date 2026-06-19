@@ -8,6 +8,7 @@ import { ScoreCard } from '@/components/ScoreCard';
 import { getErrorMessage } from '@/lib/errors';
 import { hasReachedMaxScore, MAX_SCORE } from '@/lib/game';
 import { api, type PlayerState } from '@/lib/api';
+import { APP_SHELL_CLASSES, PRIMARY_ACTION_CLASSES } from '@/lib/styles';
 
 const MAX_SCORE_DIALOG: ModalContent = {
   title: 'คะแนนเต็มแล้ว',
@@ -75,10 +76,12 @@ export default function Home() {
   const isMaxScore = player ? hasReachedMaxScore(player.score) : false;
 
   return (
-    <main className="app-shell home-page">
+    <main
+      className={`${APP_SHELL_CLASSES} pb-[76px] min-[700px]:my-6 min-[700px]:min-h-[calc(100dvh-48px)]`}
+    >
       {player ? (
         <>
-          <div className="home-hero">
+          <div className="bg-[#dedede] px-4 pb-[11px] pt-3 max-[340px]:p-[9px] min-[420px]:px-[22px] min-[420px]:pb-[14px] min-[420px]:pt-4">
             <ScoreCard
               score={player.score}
               claimed={player.rewards.map(({ checkpoint }) => checkpoint)}
@@ -86,24 +89,36 @@ export default function Home() {
               busy={busy}
             />
           </div>
-          <div className="reset-panel">
-            <button disabled={busy} onClick={resetPlayer}>
+          <div className="grid h-[70px] place-items-center border-b border-[#f0f0f0] bg-white">
+            <button
+              disabled={busy}
+              onClick={resetPlayer}
+              className="rounded-full border-0 bg-[#2514ff] px-[18px] py-[5px] text-[13px] font-black leading-none text-white shadow-[0_2px_0_rgb(0_0_0_/_0.08)] disabled:opacity-[.55]"
+            >
               RESET
             </button>
           </div>
           <History tab={tab} setTab={setTab} plays={player.plays} rewards={player.rewards} />
         </>
       ) : (
-        <div className="home-loading">กำลังโหลด...</div>
+        <div className="grid min-h-[calc(100dvh-76px)] place-items-center text-[13px] text-[#aaa]">
+          กำลังโหลด...
+        </div>
       )}
 
-      <div className="home-action safe-bottom">
+      <div className="safe-bottom fixed bottom-0 left-1/2 z-20 min-h-[70px] w-full min-w-[300px] max-w-[500px] -translate-x-1/2 rounded-t-[14px] border-t border-[#e3e3e3] bg-white px-4 pb-[10px] pt-[13px]">
         {isMaxScore ? (
-          <button type="button" className="is-max" onClick={() => setDialog(MAX_SCORE_DIALOG)}>
+          <button
+            type="button"
+            className={`${PRIMARY_ACTION_CLASSES} bg-[#a8a8a8]`}
+            onClick={() => setDialog(MAX_SCORE_DIALOG)}
+          >
             คะแนนเต็มแล้ว
           </button>
         ) : (
-          <Link href="/game">ไปเล่นเกม</Link>
+          <Link href="/game" className={PRIMARY_ACTION_CLASSES}>
+            ไปเล่นเกม
+          </Link>
         )}
       </div>
 

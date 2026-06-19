@@ -6,9 +6,13 @@ import { Modal, type ModalContent } from '@/components/Modal';
 import { api } from '@/lib/api';
 import { getErrorMessage } from '@/lib/errors';
 import { hasReachedMaxScore, MAX_SCORE, SCORE_OPTIONS } from '@/lib/game';
+import { APP_SHELL_CLASSES, PRIMARY_ACTION_CLASSES } from '@/lib/styles';
 
 const ANIMATION_DELAY_MS = 450;
 const RESULT_DELAY_MS = 350;
+const FINISH_HOLD_MS = 500;
+
+type GamePhase = 'idle' | 'playing' | 'finished';
 
 const MAX_SCORE_DIALOG: ModalContent = {
   title: 'คะแนนเต็มแล้ว',
@@ -23,9 +27,10 @@ function delay(milliseconds: number) {
 export default function GamePage() {
   const [totalScore, setTotalScore] = useState(0);
   const [visibleScores, setVisibleScores] = useState<readonly number[]>(SCORE_OPTIONS);
-  const [playing, setPlaying] = useState(false);
+  const [phase, setPhase] = useState<GamePhase>('idle');
   const [dialog, setDialog] = useState<ModalContent | null>(null);
   const isMaxScore = hasReachedMaxScore(totalScore);
+  const roundActive = phase !== 'idle';
 
   useEffect(() => {
     api
@@ -41,13 +46,13 @@ export default function GamePage() {
   }, []);
 
   async function play() {
-    if (playing) return;
+    if (roundActive) return;
     if (isMaxScore) {
       setDialog(MAX_SCORE_DIALOG);
       return;
     }
 
-    setPlaying(true);
+    setPhase('playing');
     setVisibleScores(SCORE_OPTIONS);
 
     try {
@@ -63,6 +68,8 @@ export default function GamePage() {
 
       await delay(RESULT_DELAY_MS);
       setTotalScore(result.score);
+      setPhase('finished');
+      await delay(FINISH_HOLD_MS);
 
       const reachedMax = hasReachedMaxScore(result.score);
       setDialog({
@@ -78,45 +85,69 @@ export default function GamePage() {
         detail: getErrorMessage(error),
         icon: '!',
       });
-    } finally {
-      setPlaying(false);
+      setPhase('idle');
     }
   }
 
   function closeDialog() {
     setDialog(null);
     setVisibleScores(SCORE_OPTIONS);
+    setPhase('idle');
   }
 
   return (
-    <main className="app-shell game-page">
-      <header className="game-header">
-        <h1>
+    <main
+      className={`${APP_SHELL_CLASSES} flex flex-col bg-gradient-to-b from-[#fffdfb] via-[#fff7ed] to-[#ffead1] px-[clamp(7px,2.5vw,14px)]`}
+    >
+      <header className="pt-[clamp(30px,9vw,46px)] text-center">
+        <h1 className="m-0 text-[clamp(13px,3.7vw,17px)] font-black leading-none text-[#172033]">
           คะแนนสะสม {totalScore.toLocaleString()}/{MAX_SCORE.toLocaleString()}
         </h1>
-        {isMaxScore && <strong>คะแนนเต็มแล้ว</strong>}
+        {isMaxScore && (
+          <strong className="mt-[10px] inline-block rounded-full bg-[#fff0f1] px-[13px] py-[6px] text-[clamp(10px,3vw,12px)] text-[#e62835]">
+            คะแนนเต็มแล้ว
+          </strong>
+        )}
       </header>
 
-      <section className="game-stage">
-        <div className="game-options">
-          {SCORE_OPTIONS.map((score) => (
-            <div key={score} className={visibleScores.includes(score) ? 'is-visible' : 'is-hidden'}>
-              {score.toLocaleString()}
-            </div>
-          ))}
+      <section className="flex flex-1 flex-col items-center justify-start pt-[clamp(105px,22dvh,150px)]">
+        <div className="grid w-full grid-cols-4 gap-[clamp(5px,1.8vw,9px)]">
+          {SCORE_OPTIONS.map((score) => {
+            const visible = visibleScores.includes(score);
+            const winner = phase === 'finished' && visible;
+            const stateClasses = winner
+              ? 'scale-100 bg-[#22c55e] text-white opacity-100'
+              : visible
+                ? 'scale-100 bg-[#20d5b4] text-[#172033] opacity-100'
+                : 'scale-100 bg-transparent text-[#42ad73] opacity-70';
+
+            return (
+              <div
+                key={score}
+                className={`rounded-[clamp(7px,2.2vw,11px)] px-0.5 py-[clamp(7px,2.5vw,11px)] text-center text-[clamp(11px,3.5vw,15px)] font-black transition-all duration-300 ${stateClasses}`}
+              >
+                {score.toLocaleString()}
+              </div>
+            );
+          })}
         </div>
         <button
           type="button"
           onClick={play}
-          disabled={playing}
-          className={`game-play-button ${isMaxScore ? 'is-max' : ''}`}
+          disabled={roundActive}
+          className={`mt-[clamp(35px,10vw,48px)] w-[clamp(96px,31vw,138px)] rounded-[clamp(7px,2.2vw,10px)] border-0 px-1 py-[clamp(8px,2.5vw,11px)] text-[clamp(11px,3.2vw,14px)] font-extrabold text-white disabled:bg-[#ffaaa8] ${isMaxScore ? 'bg-[#a8a8a8]' : 'bg-[#ff2933]'}`}
         >
-          {playing ? 'กำลังสุ่ม...' : isMaxScore ? 'คะแนนเต็มแล้ว' : 'สุ่มคะแนน'}
+          {roundActive ? 'กำลังสุ่ม...' : isMaxScore ? 'คะแนนเต็มแล้ว' : 'สุ่มคะแนน'}
         </button>
       </section>
 
-      <div className="game-footer safe-bottom">
-        <Link href="/">กลับหน้าหลัก</Link>
+      <div className="safe-bottom sticky bottom-0 [margin-inline:clamp(-14px,-2.5vw,-7px)] rounded-t-[18px] border-t border-[#e5e5e5] bg-white px-[clamp(10px,3vw,17px)] pb-[10px] pt-[13px]">
+        <Link
+          href="/"
+          className={`${PRIMARY_ACTION_CLASSES} p-[clamp(12px,3.5vw,15px)] text-[clamp(13px,4vw,16px)]`}
+        >
+          กลับหน้าหลัก
+        </Link>
       </div>
 
       {dialog && <Modal {...dialog} onClose={closeDialog} />}
