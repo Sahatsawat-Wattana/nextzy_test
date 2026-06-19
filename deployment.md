@@ -41,11 +41,14 @@ flowchart LR
 
 | Setting | Value |
 | --- | --- |
-| Build Command | `npm ci && npm run db:generate && npm run build -w @nextzy/api` |
+| Build Command | `npm ci --include=dev && npm run db:generate && npm run build -w @nextzy/api` |
 | Start Command | `npx prisma migrate deploy --schema backend/prisma/schema.prisma && npm run start -w @nextzy/api` |
 | Health Check Path | `/health` |
 
+
 Render กำหนด `PORT` ให้อัตโนมัติ ไม่ต้องสร้างตัวแปรนี้เอง ตัว API bind กับ `0.0.0.0` และอ่านค่า `PORT` รองรับ Render แล้ว
+
+ต้องมี `--include=dev` ใน Build Command เพราะ `@nestjs/cli` และ TypeScript เป็น build-time dependencies หากตั้ง `NODE_ENV=production` แล้วใช้เพียง `npm ci` npm จะไม่ติดตั้ง package เหล่านี้และ build จะล้มเหลวด้วยข้อความ `nest: not found`
 
 ### Backend environment variables
 
@@ -122,6 +125,20 @@ Preview deployments ของ Vercel ใช้ hostname ต่างจาก pr
 6. เปิด Render `/docs` และทดสอบ API ผ่าน Swagger
 
 หาก frontend แสดงข้อความเชื่อมต่อไม่สำเร็จ ให้ตรวจ `NEXT_PUBLIC_API_URL`, `WEB_ORIGIN`, Render service logs และ browser Network tab ก่อน
+
+### Render build reports `nest: not found`
+
+ตรวจว่า Render ใช้ Build Command นี้ตรงตัว:
+
+```bash
+npm ci --include=dev && npm run db:generate && npm run build -w @nextzy/api
+```
+
+จากนั้นเลือก **Manual Deploy > Clear build cache & deploy** เพื่อไม่ให้ใช้ dependency cache จาก build เดิม
+
+### Render startup reports `@fastify/static` is missing
+
+Swagger UI บน NestJS Fastify adapter ต้องใช้ `@fastify/static` เป็น runtime dependency โปรเจกต์นี้ประกาศ dependency ดังกล่าวใน `backend/package.json` แล้ว หาก Render ยังแสดง error นี้ ให้ตรวจว่า commit ล่าสุดมี package และ lockfile ที่อัปเดต จากนั้นเลือก **Manual Deploy > Clear build cache & deploy**
 
 ## Updating the Application
 
