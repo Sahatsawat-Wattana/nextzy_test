@@ -1,10 +1,6 @@
 'use client';
 
-const checkpoints = [
-  { value: 5000, name: 'รางวัล A' },
-  { value: 7500, name: 'รางวัล B' },
-  { value: 10000, name: 'รางวัล C' },
-];
+import { MAX_SCORE, REWARD_CHECKPOINTS, scorePercentage } from '@/lib/game';
 
 type ScoreCardProps = {
   score: number;
@@ -14,7 +10,8 @@ type ScoreCardProps = {
 };
 
 export function ScoreCard({ score, claimed, onClaim, busy }: ScoreCardProps) {
-  const percent = Math.min(100, score / 100);
+  const percent = scorePercentage(score);
+  const claimedCheckpoints = new Set(claimed);
 
   return (
     <section className="score-card" aria-label="คะแนนสะสมและระดับรางวัล">
@@ -28,12 +25,12 @@ export function ScoreCard({ score, claimed, onClaim, busy }: ScoreCardProps) {
       </div>
 
       <p className="score-card__total">
-        {score.toLocaleString()}/10,000
+        {score.toLocaleString()}/{MAX_SCORE.toLocaleString()}
       </p>
 
       <div className="reward-progress">
         <div className="reward-progress__labels">
-          {checkpoints.map(({ value }) => (
+          {REWARD_CHECKPOINTS.map(({ value }) => (
             <span key={value}>{value.toLocaleString()}</span>
           ))}
         </div>
@@ -41,16 +38,17 @@ export function ScoreCard({ score, claimed, onClaim, busy }: ScoreCardProps) {
         <div className="reward-progress__track">
           <div className="reward-progress__fill" style={{ width: `${percent}%` }} />
           <span className="reward-progress__start" />
-          {checkpoints.map(({ value }) => {
-            const isClaimed = claimed.includes(value);
+          {REWARD_CHECKPOINTS.map(({ value }) => {
+            const isClaimed = claimedCheckpoints.has(value);
             const unlocked = score >= value;
+            const stateClass = isClaimed ? 'is-claimed' : unlocked ? 'is-unlocked' : 'is-locked';
             return (
               <span
                 key={value}
-                className={`reward-progress__checkpoint ${value === 10000 ? 'is-final' : ''} ${isClaimed ? 'is-claimed' : unlocked ? 'is-unlocked' : 'is-locked'}`}
-                style={{ left: `${value / 100}%` }}
+                className={`reward-progress__checkpoint ${value === MAX_SCORE ? 'is-final' : ''} ${stateClass}`}
+                style={{ left: `${scorePercentage(value)}%` }}
               >
-                {isClaimed ? '✓' : value === 10000 ? '♛' : '✓'}
+                {value === MAX_SCORE && !isClaimed ? '♛' : '✓'}
               </span>
             );
           })}
@@ -60,18 +58,20 @@ export function ScoreCard({ score, claimed, onClaim, busy }: ScoreCardProps) {
         </div>
 
         <div className="reward-actions">
-          {checkpoints.map(({ value, name }) => {
-            const isClaimed = claimed.includes(value);
+          {REWARD_CHECKPOINTS.map(({ value, name }) => {
+            const isClaimed = claimedCheckpoints.has(value);
             const unlocked = score >= value;
+            const stateClass = isClaimed ? 'is-claimed' : unlocked ? 'is-unlocked' : 'is-locked';
+            const label = isClaimed ? 'ได้รับแล้ว' : unlocked ? 'กดรับรางวัล' : 'ยังไม่ได้รับ';
             return (
               <button
                 key={value}
                 disabled={!unlocked || isClaimed || busy}
                 onClick={() => onClaim(value, name)}
-                className={isClaimed ? 'is-claimed' : unlocked ? 'is-unlocked' : 'is-locked'}
+                className={stateClass}
                 aria-label={`${name} ที่ ${value.toLocaleString()} คะแนน`}
               >
-                {isClaimed ? 'ได้รับแล้ว' : unlocked ? 'กดรับรางวัล' : 'ยังไม่ได้รับ'}
+                {label}
               </button>
             );
           })}

@@ -1,26 +1,127 @@
 'use client';
+
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Modal } from '@/components/Modal';
+import { Modal, type ModalContent } from '@/components/Modal';
 import { api } from '@/lib/api';
+import { getErrorMessage } from '@/lib/errors';
+import { hasReachedMaxScore, MAX_SCORE, SCORE_OPTIONS } from '@/lib/game';
 
-const scores = [300, 500, 1000, 3000];
+const ANIMATION_DELAY_MS = 450;
+const RESULT_DELAY_MS = 350;
+
+const MAX_SCORE_DIALOG: ModalContent = {
+  title: 'คะแนนเต็มแล้ว',
+  detail: 'ไม่สามารถสุ่มคะแนนเพิ่มได้ กรุณากลับไปรับรางวัลหรือ Reset เพื่อเริ่มใหม่',
+  icon: '✓',
+};
+
+function delay(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 export default function GamePage() {
-  const [total, setTotal] = useState(0); const [visible, setVisible] = useState(scores); const [playing, setPlaying] = useState(false); const [result, setResult] = useState<number | null>(null); const [error, setError] = useState<string | null>(null);
-  useEffect(() => { api.state().then(x => setTotal(x.score)).catch(e => setError(e.message)); }, []);
+  const [totalScore, setTotalScore] = useState(0);
+  const [visibleScores, setVisibleScores] = useState<readonly number[]>(SCORE_OPTIONS);
+  const [playing, setPlaying] = useState(false);
+  const [dialog, setDialog] = useState<ModalContent | null>(null);
+  const isMaxScore = hasReachedMaxScore(totalScore);
+
+  useEffect(() => {
+    api
+      .state()
+      .then(({ score }) => setTotalScore(score))
+      .catch((error) =>
+        setDialog({
+          title: 'เชื่อมต่อไม่สำเร็จ',
+          detail: getErrorMessage(error),
+          icon: '!',
+        }),
+      );
+  }, []);
+
   async function play() {
-    if (playing) return; setPlaying(true); setVisible(scores); setResult(null);
+    if (playing) return;
+    if (isMaxScore) {
+      setDialog(MAX_SCORE_DIALOG);
+      return;
+    }
+
+    setPlaying(true);
+    setVisibleScores(SCORE_OPTIONS);
+
     try {
-      const response = await api.play(); const losers = scores.filter(x => x !== response.earned);
-      for (const loser of losers.sort(() => Math.random() - .5)) { await new Promise(r => setTimeout(r, 450)); setVisible(current => current.filter(x => x !== loser)); }
-      await new Promise(r => setTimeout(r, 350)); setTotal(response.score); setResult(response.earned);
-    } catch (e) { setError(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด'); } finally { setPlaying(false); }
+      const result = await api.play();
+      const eliminatedScores = SCORE_OPTIONS.filter((score) => score !== result.earned).sort(
+        () => Math.random() - 0.5,
+      );
+
+      for (const eliminatedScore of eliminatedScores) {
+        await delay(ANIMATION_DELAY_MS);
+        setVisibleScores((scores) => scores.filter((score) => score !== eliminatedScore));
+      }
+
+      await delay(RESULT_DELAY_MS);
+      setTotalScore(result.score);
+
+      const reachedMax = hasReachedMaxScore(result.score);
+      setDialog({
+        title: reachedMax ? 'คะแนนเต็มแล้ว' : 'ได้รับ',
+        detail: reachedMax
+          ? `ได้รับ ${result.earned.toLocaleString()} คะแนน และสะสมครบ ${MAX_SCORE.toLocaleString()} คะแนนแล้ว`
+          : `${result.earned.toLocaleString()} คะแนน`,
+        icon: reachedMax ? '✓' : '🎉',
+      });
+    } catch (error) {
+      setDialog({
+        title: 'เชื่อมต่อไม่สำเร็จ',
+        detail: getErrorMessage(error),
+        icon: '!',
+      });
+    } finally {
+      setPlaying(false);
+    }
   }
-  function closeResult() { setResult(null); setVisible(scores); }
-  return <main className="app-shell gradient-page flex min-h-dvh flex-col px-5">
-    <header className="pt-8 text-center"><p className="text-sm font-bold text-slate-500">คะแนนสะสม</p><h1 className="mt-1 text-2xl font-black">{total.toLocaleString()}<span className="text-slate-400">/10,000</span></h1></header>
-    <section className="flex flex-1 flex-col items-center justify-center pb-24"><div className="grid w-full grid-cols-4 gap-2">{scores.map(score => <div key={score} className={`rounded-xl py-3 text-center text-sm font-black transition-all duration-300 ${visible.includes(score) ? 'scale-100 bg-teal-400 text-slate-900 opacity-100 shadow-md' : 'scale-75 bg-transparent text-emerald-600 opacity-20'}`}>{score.toLocaleString()}</div>)}</div><button onClick={play} disabled={playing} className="mt-12 rounded-full bg-rose-500 px-8 py-3 font-bold text-white shadow-lg disabled:bg-rose-300">{playing ? 'กำลังสุ่ม...' : 'สุ่มคะแนน'}</button></section>
-    <div className="safe-bottom sticky bottom-0 -mx-5 rounded-t-3xl border-t bg-white px-5 pt-3"><Link href="/" className="block rounded-full bg-amber-400 py-3 text-center font-bold text-white">กลับหน้าหลัก</Link></div>
-    {result !== null && <Modal title="ได้รับ" detail={`${result.toLocaleString()} คะแนน`} icon="🎉" onClose={closeResult} />}{error && <Modal title="เชื่อมต่อไม่สำเร็จ" detail={error} icon="!" onClose={() => setError(null)} />}
-  </main>;
+
+  function closeDialog() {
+    setDialog(null);
+    setVisibleScores(SCORE_OPTIONS);
+  }
+
+  return (
+    <main className="app-shell game-page">
+      <header className="game-header">
+        <p>คะแนนสะสม</p>
+        <h1>
+          {totalScore.toLocaleString()}
+          <span>/{MAX_SCORE.toLocaleString()}</span>
+        </h1>
+        {isMaxScore && <strong>คะแนนเต็มแล้ว</strong>}
+      </header>
+
+      <section className="game-stage">
+        <div className="game-options">
+          {SCORE_OPTIONS.map((score) => (
+            <div key={score} className={visibleScores.includes(score) ? 'is-visible' : 'is-hidden'}>
+              {score.toLocaleString()}
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={play}
+          disabled={playing}
+          className={`game-play-button ${isMaxScore ? 'is-max' : ''}`}
+        >
+          {playing ? 'กำลังสุ่ม...' : isMaxScore ? 'คะแนนเต็มแล้ว' : 'สุ่มคะแนน'}
+        </button>
+      </section>
+
+      <div className="game-footer safe-bottom">
+        <Link href="/">กลับหน้าหลัก</Link>
+      </div>
+
+      {dialog && <Modal {...dialog} onClose={closeDialog} />}
+    </main>
+  );
 }

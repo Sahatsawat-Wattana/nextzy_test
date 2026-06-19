@@ -3,81 +3,111 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { History } from '@/components/History';
-import { Modal } from '@/components/Modal';
+import { Modal, type ModalContent } from '@/components/Modal';
 import { ScoreCard } from '@/components/ScoreCard';
+import { getErrorMessage } from '@/lib/errors';
+import { hasReachedMaxScore, MAX_SCORE } from '@/lib/game';
 import { api, type PlayerState } from '@/lib/api';
 
+const MAX_SCORE_DIALOG: ModalContent = {
+  title: 'คะแนนเต็มแล้ว',
+  detail: `คะแนนสะสมครบ ${MAX_SCORE.toLocaleString()} คะแนน กรุณารับรางวัลหรือ Reset เพื่อเริ่มใหม่`,
+  icon: '✓',
+};
+
 export default function Home() {
-  const [state, setState] = useState<PlayerState | null>(null);
+  const [player, setPlayer] = useState<PlayerState | null>(null);
   const [tab, setTab] = useState<'plays' | 'rewards'>('plays');
   const [busy, setBusy] = useState(false);
-  const [modal, setModal] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<ModalContent | null>(null);
 
-  const load = useCallback(() => {
-    api.state().then(setState).catch((err) => setError(err.message));
+  const loadPlayer = useCallback(async () => {
+    const state = await api.state();
+    setPlayer(state);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void loadPlayer().catch((error) => {
+      setDialog({
+        title: 'เชื่อมต่อไม่สำเร็จ',
+        detail: getErrorMessage(error),
+        icon: '!',
+      });
+    });
+  }, [loadPlayer]);
 
-  async function claim(checkpoint: number, name: string) {
+  async function claimReward(checkpoint: number, name: string) {
     setBusy(true);
     try {
       await api.claim(checkpoint);
-      await load();
-      setModal(name);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
+      await loadPlayer();
+      setDialog({ title: 'ยินดีด้วย', detail: `คุณได้รับ${name}` });
+    } catch (error) {
+      setDialog({
+        title: 'ไม่สามารถทำรายการได้',
+        detail: getErrorMessage(error),
+        icon: '!',
+      });
     } finally {
       setBusy(false);
     }
   }
 
-  async function reset() {
+  async function resetPlayer() {
     if (!window.confirm('รีเซตคะแนนและประวัติทั้งหมดหรือไม่?')) return;
+
     setBusy(true);
     try {
       await api.reset();
-      await load();
+      await loadPlayer();
       setTab('plays');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
+    } catch (error) {
+      setDialog({
+        title: 'ไม่สามารถทำรายการได้',
+        detail: getErrorMessage(error),
+        icon: '!',
+      });
     } finally {
       setBusy(false);
     }
   }
 
+  const isMaxScore = player ? hasReachedMaxScore(player.score) : false;
+
   return (
     <main className="app-shell home-page">
-      {state ? (
+      {player ? (
         <>
           <div className="home-hero">
             <ScoreCard
-              score={state.score}
-              claimed={state.rewards.map((item) => item.checkpoint)}
-              onClaim={claim}
+              score={player.score}
+              claimed={player.rewards.map(({ checkpoint }) => checkpoint)}
+              onClaim={claimReward}
               busy={busy}
             />
           </div>
           <div className="reset-panel">
-            <button disabled={busy} onClick={reset}>RESET</button>
+            <button disabled={busy} onClick={resetPlayer}>
+              RESET
+            </button>
           </div>
-          <History tab={tab} setTab={setTab} plays={state.plays} rewards={state.rewards} />
+          <History tab={tab} setTab={setTab} plays={player.plays} rewards={player.rewards} />
         </>
       ) : (
         <div className="home-loading">กำลังโหลด...</div>
       )}
 
       <div className="home-action safe-bottom">
-        <Link href="/game">ไปเล่นเกม</Link>
+        {isMaxScore ? (
+          <button type="button" className="is-max" onClick={() => setDialog(MAX_SCORE_DIALOG)}>
+            คะแนนเต็มแล้ว
+          </button>
+        ) : (
+          <Link href="/game">ไปเล่นเกม</Link>
+        )}
       </div>
 
-      {modal && (
-        <Modal title="ยินดีด้วย" detail={`คุณได้รับ${modal}`} onClose={() => setModal(null)} />
-      )}
-      {error && (
-        <Modal title="ไม่สามารถทำรายการได้" detail={error} icon="!" onClose={() => setError(null)} />
-      )}
+      {dialog && <Modal {...dialog} onClose={() => setDialog(null)} />}
     </main>
   );
 }

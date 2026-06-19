@@ -20,19 +20,20 @@ type HistoryProps = {
 };
 
 export function History({ tab, setTab, plays, rewards }: HistoryProps) {
-  const rows = tab === 'plays'
-    ? plays.map((item) => ({
-        id: item.id,
-        title: `เล่นได้ ${item.score.toLocaleString()} คะแนน`,
-        date: item.createdAt,
-        color: 'play',
-      }))
-    : rewards.map((item) => ({
-        id: item.id,
-        title: `ได้รับ${item.rewardName}`,
-        date: item.createdAt,
-        color: 'reward',
-      }));
+  const rows =
+    tab === 'plays'
+      ? plays.map((item) => ({
+          id: item.id,
+          title: `เล่นได้ ${item.score.toLocaleString()} คะแนน`,
+          date: item.createdAt,
+          color: 'play',
+        }))
+      : rewards.map((item) => ({
+          id: item.id,
+          title: `ได้รับ${item.rewardName}`,
+          date: item.createdAt,
+          color: 'reward',
+        }));
 
   return (
     <section className="history-panel">
@@ -62,7 +63,9 @@ export function History({ tab, setTab, plays, rewards }: HistoryProps) {
               <span className={`history-row__icon history-row__icon--${row.color}`} />
               <div>
                 <h3>{row.title}</h3>
-                <p>{tab === 'plays' ? 'เล่นเมื่อ' : 'ได้รับเมื่อ'} {formatTime(row.date)} น.</p>
+                <p>
+                  {tab === 'plays' ? 'เล่นเมื่อ' : 'ได้รับเมื่อ'} {formatTime(row.date)} น.
+                </p>
               </div>
             </article>
           ))}
