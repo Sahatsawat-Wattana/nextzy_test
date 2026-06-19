@@ -5,7 +5,11 @@ export type RewardHistory = { id: number; checkpoint: number; rewardName: string
 export type PlayerState = { score: number; plays: PlayHistory[]; rewards: RewardHistory[] };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
+  const headers = new Headers(init?.headers);
+  if (init?.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const response = await fetch(`${API_URL}${path}`, { ...init, headers });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(Array.isArray(body.message) ? body.message[0] : body.message || 'เกิดข้อผิดพลาด');
