@@ -1,11 +1,78 @@
 'use client';
+
 import type { PlayHistory, RewardHistory } from '@/lib/api';
 
-function time(value: string) { return new Intl.DateTimeFormat('th-TH', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)); }
-export function History({ tab, setTab, plays, rewards }: { tab: 'plays' | 'rewards'; setTab: (tab: 'plays' | 'rewards') => void; plays: PlayHistory[]; rewards: RewardHistory[] }) {
-  const rows = tab === 'plays' ? plays.map(x => ({ id: x.id, title: `เล่นได้ ${x.score.toLocaleString()} คะแนน`, date: x.createdAt, color: 'bg-rose-500' })) : rewards.map(x => ({ id: x.id, title: `ได้รับ${x.rewardName}`, date: x.createdAt, color: 'bg-violet-600' }));
-  return <section className="px-5 pb-28 pt-5">
-    <div className="flex gap-2 border-b border-slate-100 pb-3"><button onClick={() => setTab('plays')} className={`rounded-full px-4 py-2 text-sm font-bold ${tab === 'plays' ? 'bg-rose-500 text-white' : 'text-slate-400'}`}>ประวัติการเล่น</button><button onClick={() => setTab('rewards')} className={`rounded-full px-4 py-2 text-sm font-bold ${tab === 'rewards' ? 'bg-rose-500 text-white' : 'text-slate-400'}`}>ประวัติรางวัล</button></div>
-    {rows.length ? <div className="divide-y divide-slate-100">{rows.map(row => <article key={row.id} className="flex items-center gap-4 py-4"><div className={`h-11 w-11 shrink-0 rounded-full ${row.color}`} /><div><h3 className="font-bold">{row.title}</h3><p className="mt-1 text-xs text-slate-400">{time(row.date)}</p></div></article>)}</div> : <div className="py-16 text-center"><div className="text-4xl">🕹️</div><p className="mt-3 text-sm text-slate-400">ยังไม่มี{tab === 'plays' ? 'ประวัติการเล่น' : 'รางวัลที่ได้รับ'}</p></div>}
-  </section>;
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat('th-TH', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+type HistoryProps = {
+  tab: 'plays' | 'rewards';
+  setTab: (tab: 'plays' | 'rewards') => void;
+  plays: PlayHistory[];
+  rewards: RewardHistory[];
+};
+
+export function History({ tab, setTab, plays, rewards }: HistoryProps) {
+  const rows = tab === 'plays'
+    ? plays.map((item) => ({
+        id: item.id,
+        title: `เล่นได้ ${item.score.toLocaleString()} คะแนน`,
+        date: item.createdAt,
+        color: 'play',
+      }))
+    : rewards.map((item) => ({
+        id: item.id,
+        title: `ได้รับ${item.rewardName}`,
+        date: item.createdAt,
+        color: 'reward',
+      }));
+
+  return (
+    <section className="history-panel">
+      <div className="history-tabs" role="tablist" aria-label="ประวัติ">
+        <button
+          role="tab"
+          aria-selected={tab === 'plays'}
+          onClick={() => setTab('plays')}
+          className={tab === 'plays' ? 'is-active' : ''}
+        >
+          ประวัติการเล่น
+        </button>
+        <button
+          role="tab"
+          aria-selected={tab === 'rewards'}
+          onClick={() => setTab('rewards')}
+          className={tab === 'rewards' ? 'is-active' : ''}
+        >
+          ประวัติรางวัล
+        </button>
+      </div>
+
+      {rows.length > 0 ? (
+        <div className="history-list">
+          {rows.map((row) => (
+            <article key={row.id} className="history-row">
+              <span className={`history-row__icon history-row__icon--${row.color}`} />
+              <div>
+                <h3>{row.title}</h3>
+                <p>{tab === 'plays' ? 'เล่นเมื่อ' : 'ได้รับเมื่อ'} {formatTime(row.date)} น.</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="history-empty">
+          <span>{tab === 'plays' ? '●' : '◆'}</span>
+          <p>ยังไม่มี{tab === 'plays' ? 'ประวัติการเล่น' : 'รางวัลที่ได้รับ'}</p>
+        </div>
+      )}
+    </section>
+  );
 }

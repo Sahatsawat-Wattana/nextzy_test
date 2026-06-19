@@ -156,50 +156,85 @@ npm run dev
 | `npm run lint` | ตรวจสอบ TypeScript แบบ strict |
 | `npm run db:generate` | สร้าง Prisma Client |
 | `npm run db:migrate` | apply/create Prisma development migration |
-| `npm run deploy:build` | build production container images |
-| `npm run deploy:up` | เริ่ม production stack ด้วย Docker Compose |
 
 ก่อนส่ง Pull Request ควรรัน `npm run lint`, `npm test` และ `npm run build` ให้ผ่านทั้งหมด
 
 ## Production Deployment
 
-ระบบเตรียม multi-stage Docker images สำหรับ frontend และ backend ไว้แล้ว โดย production stack จะรันทั้งสาม service ได้แก่ Next.js, NestJS และ PostgreSQL พร้อม health checks และ persistent database volume
+Production architecture ที่ใช้งานจริงแยกเป็นสาม services:
 
-### 1. ตั้งค่า production environment
+- **Frontend:** Next.js บน Vercel
+- **Backend:** NestJS Web Service บน Render
+- **Database:** Render Postgres
+
+ดูขั้นตอนโดยละเอียด รวม troubleshooting และ custom domains ได้ที่ [deployment.md](deployment.md)
+
+### Render Postgres
+
+สร้าง PostgreSQL instance ใน region เดียวกับ backend และใช้ **Internal Database URL** เป็น `DATABASE_URL`
+
+### Render Backend
+
+สร้าง Node Web Service จาก repository โดยปล่อย Root Directory ว่างเพื่อใช้ root npm workspace และ lockfile
+
+```text
+Build Command:
+npm ci --include=dev && npm run db:generate && npm run build -w @nextzy/api
+
+Start Command:
+npx prisma migrate deploy --schema backend/prisma/schema.prisma && npm run start -w @nextzy/api
+
+Health Check Path:
+/health
+```
+
+Environment variables:
+
+- `DATABASE_URL`: Render Postgres Internal Database URL
+- `WEB_ORIGIN`: Vercel production URL โดยไม่เติม `/` ท้าย URL
+- `NODE_ENV=production`
+
+Render กำหนด `PORT` ให้อัตโนมัติ ห้ามแทนค่าด้วย port แบบ hard-code การใช้ `--include=dev` ใน Build Command จำเป็นสำหรับ `@nestjs/cli` และ TypeScript
+
+หลัง deploy ให้ตรวจ:
+
+- `https://<render-service>.onrender.com/health`
+- `https://<render-service>.onrender.com/docs`
+
+### Vercel Frontend
+
+Import repository แล้วตั้ง **Root Directory** เป็น `frontend` และใช้ Next.js defaults:
+
+```text
+Install Command: npm install
+Build Command: npm run build
+Output Directory: .next
+```
+
+เพิ่ม environment variable:
+
+```env
+NEXT_PUBLIC_API_URL=https://<render-service>.onrender.com
+```
+
+ค่า `NEXT_PUBLIC_API_URL` ถูกฝังใน client bundle ตอน build เมื่อแก้ค่าต้อง redeploy Vercel หลังจากได้ Vercel production URL แล้ว ให้กลับไปตั้ง `WEB_ORIGIN` บน Render ให้ตรงกันและ redeploy backend
+
+### Deployment Verification
+
+1. Render `/health` ตอบ `{"status":"ok"}` และ `/docs` เปิด Swagger ได้
+2. หน้า Home บน Vercel โหลดข้อมูลโดยไม่มี CORS error
+3. สุ่มคะแนนแล้วคะแนนและ play history ถูกบันทึก
+4. รับรางวัลเดิมซ้ำไม่ได้
+5. Reset ล้างคะแนนและประวัติทั้งหมด
+
+## Optional Docker Deployment
+
+สำหรับ self-hosted environment ยังสามารถใช้ multi-stage Docker images และ `docker-compose.prod.yml` ได้:
 
 ```bash
 cp .env.production.example .env.production
-```
-
-แก้ค่าต่อไปนี้ก่อน deploy:
-
-- `POSTGRES_PASSWORD`: รหัสผ่านที่คาดเดายากและไม่ซ้ำกับระบบอื่น
-- `WEB_ORIGIN`: public URL ของ frontend สำหรับ CORS เช่น `https://rewards.example.com`
-- `PUBLIC_API_URL`: public URL ที่ browser ใช้เรียก API เช่น `https://api.rewards.example.com`
-- `WEB_PORT` และ `API_PORT`: port ที่ host เปิดให้ reverse proxy
-
-ค่าของ `NEXT_PUBLIC_API_URL` ถูกฝังใน frontend ขณะ build ดังนั้นต้อง build image ใหม่เมื่อเปลี่ยน `PUBLIC_API_URL`
-
-### 2. Build และเริ่ม services
-
-```bash
 npm run deploy:build
 npm run deploy:up
 ```
 
-หรือรัน Docker Compose โดยตรง:
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
-```
-
-Backend container จะรัน `prisma migrate deploy` ก่อนเริ่ม API โดยอัตโนมัติ PostgreSQL ไม่ถูก publish ออกจาก Docker network และข้อมูลถูกเก็บใน named volume `postgres-data`
-
-### 3. ตรวจสอบสถานะ
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml ps
-docker compose --env-file .env.production -f docker-compose.prod.yml logs -f
-```
-
-สำหรับการใช้งานจริง ควรวาง TLS reverse proxy หรือ managed load balancer ไว้หน้า port ของ frontend และ backend พร้อมสำรอง PostgreSQL volume ตามนโยบายของระบบ
+เส้นทางนี้เป็นทางเลือกสำหรับ self-hosting ไม่ใช่ deployment หลักบน Vercel/Render
