@@ -1,0 +1,220 @@
+openapi: 3.0.3
+info:
+  title: Nextzy Rewards API
+  version: 1.0.0
+  description: Single-player score, reward, and history API.
+servers:
+  - url: http://localhost:4000
+    description: Local development
+tags:
+  - name: System
+  - name: Player
+  - name: Game
+  - name: Rewards
+paths:
+  /health:
+    get:
+      tags: [System]
+      operationId: getHealth
+      summary: Check API health
+      responses:
+        '200':
+          description: API process is available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /player:
+    get:
+      tags: [Player]
+      operationId: getPlayerState
+      summary: Get the current score and histories
+      responses:
+        '200':
+          description: Current single-player state. Histories are newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerState'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /game/play:
+    post:
+      tags: [Game]
+      operationId: playGame
+      summary: Generate and persist a random score
+      description: The server selects 300, 500, 1000, or 3000 and caps the total at 10000. The request has no body.
+      responses:
+        '201':
+          description: Round completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayResult'
+        '409':
+          description: Total score has already reached 10000.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /rewards/{checkpoint}/claim:
+    post:
+      tags: [Rewards]
+      operationId: claimReward
+      summary: Claim an unlocked reward once
+      parameters:
+        - name: checkpoint
+          in: path
+          required: true
+          description: Configured reward score threshold.
+          schema:
+            type: integer
+            enum: [5000, 7500, 10000]
+      responses:
+        '201':
+          description: Reward claimed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RewardHistory'
+        '400':
+          description: Invalid checkpoint or score below the checkpoint.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Reward was already claimed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /reset:
+    post:
+      tags: [Player]
+      operationId: resetPlayer
+      summary: Reset score and delete all histories
+      responses:
+        '201':
+          description: Player state reset.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  responses:
+    InternalError:
+      description: Unexpected application or database failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+    PlayerState:
+      type: object
+      additionalProperties: false
+      required: [id, score, updatedAt, plays, rewards]
+      properties:
+        id:
+          type: integer
+          example: 1
+        score:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        updatedAt:
+          type: string
+          format: date-time
+        plays:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayHistory'
+        rewards:
+          type: array
+          items:
+            $ref: '#/components/schemas/RewardHistory'
+    PlayHistory:
+      type: object
+      additionalProperties: false
+      required: [id, score, createdAt, playerId]
+      properties:
+        id:
+          type: integer
+        score:
+          type: integer
+          enum: [300, 500, 1000, 3000]
+        createdAt:
+          type: string
+          format: date-time
+        playerId:
+          type: integer
+          example: 1
+    RewardHistory:
+      type: object
+      additionalProperties: false
+      required: [id, checkpoint, rewardName, createdAt, playerId]
+      properties:
+        id:
+          type: integer
+        checkpoint:
+          type: integer
+          enum: [5000, 7500, 10000]
+        rewardName:
+          type: string
+          enum: [รางวัล A, รางวัล B, รางวัล C]
+        createdAt:
+          type: string
+          format: date-time
+        playerId:
+          type: integer
+          example: 1
+    PlayResult:
+      type: object
+      additionalProperties: false
+      required: [earned, score]
+      properties:
+        earned:
+          type: integer
+          enum: [300, 500, 1000, 3000]
+        score:
+          type: integer
+          minimum: 0
+          maximum: 10000
+    ResetResponse:
+      type: object
+      additionalProperties: false
+      required: [score]
+      properties:
+        score:
+          type: integer
+          enum: [0]
+    ErrorResponse:
+      type: object
+      required: [statusCode, message]
+      properties:
+        statusCode:
+          type: integer
+          example: 409
+        message:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        error:
+          type: string
+          example: Conflict

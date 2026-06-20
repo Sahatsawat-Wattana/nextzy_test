@@ -4,6 +4,8 @@
 
 คู่มือ deploy แบบ managed hosting: [deployment.md](deployment.md)
 
+เอกสารสำหรับทีมพัฒนา เช่น component diagrams, frontend/backend structure, API contract และ workflow การทำงานร่วมกัน: [docs/README.md](docs/README.md)
+
 ## Tech Stack
 
 - Frontend: Next.js 15, React 19, TypeScript, Tailwind CSS
